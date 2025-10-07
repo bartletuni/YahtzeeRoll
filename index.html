@@ -162,6 +162,15 @@
 
         .muted { opacity: 0.6; }
 
+        /* Modal */
+        #modal {
+            position: fixed; inset: 0; display:flex; align-items:center; justify-content:center; z-index:2000; background: rgba(0,0,0,0.5); visibility:hidden; opacity:0; transition:opacity .18s ease, visibility .18s;
+        }
+        #modal.open { visibility:visible; opacity:1; }
+        .modal-card { background:#fff; color:#111; padding:20px; border-radius:12px; border:4px solid var(--accent-1); width: min(90%, 420px); text-align:center; font-family:'Press Start 2P',cursive; }
+        .modal-card p { margin:12px 0; }
+        .modal-card .btn { margin-top:8px; }
+
         @media (max-width: 640px) {
             .stats { font-size: 12px; }
             .btn { font-size: 12px; padding: 6px 10px; }
@@ -179,6 +188,8 @@
                 <div class="stat-pill"><span id="rerolls">Rerolls: 3</span></div>
                 <div class="stat-pill"><span id="deck"></span></div>
                 <div class="stat-pill"><span id="round">Round: 1</span></div>
+                <div class="stat-pill"><span id="roundScore">Round: 0</span></div>
+                <div class="stat-pill"><span id="levelGoal">Goal: 30</span></div>
             </div>
             <div class="controls">
                 <button id="rollBtn" class="btn">Roll Dice</button>
@@ -200,90 +211,28 @@
             <button id="closeShop" class="btn">Close</button>
         </aside>
     </div>
+
+    <div id="modal" role="dialog" aria-hidden="true">
+        <div class="modal-card">
+            <div id="modalMsg">Message</div>
+            <p id="modalDetails"></p>
+            <button id="modalOk" class="btn">OK</button>
+        </div>
+    </div>
+
     <script>
         // --- Pixel Art Dice Sprites ---
         const diceSprites = {
             normal: [
-                // 6x6 pixel art for each face (1-6)
-                [
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,0,2,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                ],
-                [
-                    [0,0,0,0,0,0],
-                    [0,2,0,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,2,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                ],
-                [
-                    [0,0,0,0,0,0],
-                    [0,2,0,0,0,0],
-                    [0,0,2,0,0,0],
-                    [0,0,0,0,2,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                ],
-                [
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                ],
-                [
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                    [0,0,2,0,0,0],
-                    [0,0,0,0,0,0],
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                ],
-                [
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                    [0,2,0,0,2,0],
-                    [0,0,0,0,0,0],
-                ]
-            ],
-            // Fire Die: Red border, burns for extra points
-            fire: [
-                // Same faces, but color code 3 for border
-            ],
-            // Lucky Die: Yellow border, reroll 1s
-            lucky: [
-                // Same faces, but color code 4 for border
-            ],
-            // Shield Die: Orange border, blocks negative effects
-            shield: [
-                // Same faces, but color code 5 for border
-            ],
-            // Frost Die: Light blue border, extra points on 5-6
-            frost: [
-                // Same faces, but color code 6 for border
-            ],
-            // Poison Die: Green border, negative effect on 1
-            poison: [
-                // Same faces, but color code 7 for border
-            ],
-            // Gold Die: Dark yellow border, extra gold on 5-6
-            gold: [
-                // Same faces, but color code 8 for border
-            ],
-            // Double Die: Pink border, doubles even rolls
-            double: [
-                // Same faces, but color code 9 for border
+                [ [0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,2,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0] ],
+                [ [0,0,0,0,0,0],[0,2,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,2,0],[0,0,0,0,0,0],[0,0,0,0,0,0] ],
+                [ [0,0,0,0,0,0],[0,2,0,0,0,0],[0,0,2,0,0,0],[0,0,0,0,2,0],[0,0,0,0,0,0],[0,0,0,0,0,0] ],
+                [ [0,2,0,0,2,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,0,0,0,0,0],[0,2,0,0,2,0],[0,0,0,0,0,0] ],
+                [ [0,2,0,0,2,0],[0,0,0,0,0,0],[0,0,2,0,0,0],[0,0,0,0,0,0],[0,2,0,0,2,0],[0,0,0,0,0,0] ],
+                [ [0,2,0,0,2,0],[0,0,0,0,0,0],[0,2,0,0,2,0],[0,0,0,0,0,0],[0,2,0,0,2,0],[0,0,0,0,0,0] ]
             ]
         };
-        // Fill in fire/lucky/shield dice with colored borders
+
         function makeColoredDice(base, borderColor) {
             return base.map(face => face.map((row, y) =>
                 row.map((cell, x) => {
@@ -302,94 +251,27 @@
 
         // --- Dice Definitions ---
         const diceTypes = [
-            {
-                name: "Normal Die",
-                key: "normal",
-                desc: "Standard die.",
-                color: "#fff",
-                unlock: 0,
-                ability: (rolls, idx, state) => rolls[idx],
-            },
-            {
-                name: "Fire Die",
-                key: "fire",
-                desc: "+2 bonus on 6.",
-                color: "#ff4d4d",
-                unlock: 10,
-                ability: (rolls, idx, state) => {
-                    if (rolls[idx] === 6) state.bonus += 2;
-                    return rolls[idx];
-                }
-            },
-            {
-                name: "Lucky Die",
-                key: "lucky",
-                desc: "Rerolls 1s.",
-                color: "#ffec70",
-                unlock: 20,
-                ability: (rolls, idx, state) => {
-                    if (rolls[idx] === 1) {
-                        let reroll = Math.floor(Math.random() * 6) + 1;
-                        return reroll;
-                    }
-                    return rolls[idx];
-                }
-            },
-            {
-                name: "Shield Die",
-                key: "shield",
-                desc: "Blocks negative effects.",
-                color: "#ffb347",
-                unlock: 30,
-                ability: (rolls, idx, state) => rolls[idx]
-            },
-            {
-                name: "Frost Die",
-                key: "frost",
-                desc: "+3 bonus on 5 or 6.",
-                color: "#8fd8ff",
-                unlock: 12,
-                ability: (rolls, idx, state) => {
-                    if (rolls[idx] >= 5) state.bonus += 3;
-                    return rolls[idx];
-                }
-            },
-            {
-                name: "Poison Die",
-                key: "poison",
-                desc: "Rolling a 1 subtracts 2 score.",
-                color: "#7a1f1f",
-                unlock: 18,
-                ability: (rolls, idx, state) => {
-                    if (rolls[idx] === 1) state.score = Math.max(0, state.score - 2);
-                    return rolls[idx];
-                }
-            },
-            {
-                name: "Gold Die",
-                key: "gold",
-                desc: "5-6 yield extra gold.",
-                color: "#ffd24d",
-                unlock: 8,
-                ability: (rolls, idx, state) => {
-                    if (rolls[idx] >= 5) state.gold += 1;
-                    return rolls[idx];
-                }
-            },
-            {
-                name: "Double Die",
-                key: "double",
-                desc: "Even rolls are doubled.",
-                color: "#ff9fba",
-                unlock: 22,
-                ability: (rolls, idx, state) => {
-                    if (rolls[idx] % 2 === 0) return rolls[idx] * 2 > 6 ? 6 : rolls[idx] * 2;
-                    return rolls[idx];
-                }
-            },
+            { name: "Normal Die", key: "normal", desc: "Standard die.", color: "#fff", unlock: 0,
+              ability: (rolls, idx, state) => rolls[idx] },
+            { name: "Fire Die", key: "fire", desc: "+2 bonus on 6.", color: "#ff4d4d", unlock: 10,
+              ability: (rolls, idx, state) => { if (rolls[idx] === 6) state.bonus += 2; return rolls[idx]; } },
+            { name: "Lucky Die", key: "lucky", desc: "Rerolls 1s.", color: "#ffec70", unlock: 20,
+              ability: (rolls, idx, state) => { if (rolls[idx] === 1) return Math.floor(Math.random()*6)+1; return rolls[idx]; } },
+            { name: "Shield Die", key: "shield", desc: "Blocks negative effects.", color: "#ffb347", unlock: 30,
+              ability: (rolls, idx, state) => rolls[idx] },
+            { name: "Frost Die", key: "frost", desc: "+3 bonus on 5 or 6.", color: "#8fd8ff", unlock: 12,
+              ability: (rolls, idx, state) => { if (rolls[idx] >= 5) state.bonus += 3; return rolls[idx]; } },
+            { name: "Poison Die", key: "poison", desc: "Rolling a 1 subtracts 2 score.", color: "#7a1f1f", unlock: 18,
+              ability: (rolls, idx, state) => { if (rolls[idx] === 1) state.score = Math.max(0, state.score - 2); return rolls[idx]; } },
+            { name: "Gold Die", key: "gold", desc: "5-6 yield extra gold.", color: "#ffd24d", unlock: 8,
+              ability: (rolls, idx, state) => { if (rolls[idx] >= 5) state.gold += 1; return rolls[idx]; } },
+            { name: "Double Die", key: "double", desc: "Even rolls are doubled.", color: "#ff9fba", unlock: 22,
+              ability: (rolls, idx, state) => { if (rolls[idx] % 2 === 0) return rolls[idx] * 2 > 6 ? 6 : rolls[idx] * 2; return rolls[idx]; } },
         ];
 
         // --- Game State ---
+        const INITIAL_LEVEL_GOAL = 30; // starting goal for round 1
+        const WIN_LEVEL = 8; // reach this level to win overall
         let state = {
             score: 0,
             gold: 0,
@@ -403,7 +285,10 @@
             diceResults: [],
             round: 1,
             roundActive: true,
+            roundScore: 0,
+            levelGoal: INITIAL_LEVEL_GOAL,
             upgrades: [],
+            winLevel: WIN_LEVEL,
         };
 
         // --- Canvas Setup ---
@@ -413,14 +298,19 @@
 
         // New helper to draw to arbitrary context (used for small deck canvases too)
         function drawPixelDieTo(ctxLocal, x, y, size, face, type) {
+            // Fill face background (light) so pips are visible
+            ctxLocal.fillStyle = '#ffffff';
+            ctxLocal.fillRect(x, y, size, size);
+
+            // draw sprite overlay (border and pips)
             const sprite = diceSprites[type] || diceSprites.normal;
-            const s = Math.max(1, size/6);
+            const s = Math.max(1, Math.floor(size/6));
             for (let py=0; py<6; ++py) {
                 for (let px=0; px<6; ++px) {
                     let c = sprite[py][px];
                     if (c === 0) continue;
                     ctxLocal.fillStyle = (
-                        c === 2 ? "#222" :
+                        c === 2 ? "#111" : // pip darker
                         c === 3 ? "#ff4d4d" :
                         c === 4 ? "#ffec70" :
                         c === 5 ? "#ffb347" :
@@ -428,11 +318,12 @@
                         c === 7 ? "#6b8b3b" :
                         c === 8 ? "#ffd24d" :
                         c === 9 ? "#ff9fba" :
-                        "#fff"
+                        "#000"
                     );
                     ctxLocal.fillRect(x+px*s, y+py*s, s, s);
                 }
             }
+            // outline
             ctxLocal.strokeStyle = "#000";
             ctxLocal.lineWidth = 2;
             ctxLocal.strokeRect(x, y, size, size);
@@ -449,8 +340,9 @@
             let startX = (W - (n*size + (n-1)*gap)) / 2;
             for (let i=0; i<n; ++i) {
                 let dieType = deck[i].type;
-                let face = results[i] || 1;
-                drawPixelDie(startX + i*(size+gap), H/2 - size/2 + animY, size, face, dieType);
+                let face = Math.max(1, Math.min(6, results[i] || 1));
+                // clamp face to 1..6 for display; some abilities may return >6
+                drawPixelDie(startX + i*(size+gap), H/2 - size/2 + animY, size, Math.min(face,6), dieType);
             }
         }
 
@@ -467,7 +359,7 @@
                 localCtx.clearRect(0,0,48,48);
                 const face = (state.diceResults[i]) ? state.diceResults[i] : 1;
                 // draw centered
-                drawPixelDieTo(localCtx, 2, 2, 44, face, d.type);
+                drawPixelDieTo(localCtx, 2, 2, 44, Math.min(face,6), d.type);
                 const label = document.createElement('div');
                 label.className = 'deck-label';
                 label.textContent = d.type;
@@ -483,6 +375,8 @@
             document.getElementById('rerolls').textContent = `Rerolls: ${state.rerolls}`;
             document.getElementById('deck').textContent = `Deck: ${state.deck.map(d => diceTypes.find(dt=>dt.key===d.type).name).join(", ")}`;
             document.getElementById('round').textContent = `Round: ${state.round}`;
+            document.getElementById('roundScore').textContent = `Round Score: ${state.roundScore}`;
+            document.getElementById('levelGoal').textContent = `Goal: ${state.levelGoal}`;
             // Shop access only at end of round
             const shopBtn = document.getElementById('shopBtn');
             shopBtn.disabled = state.roundActive;
@@ -563,6 +457,7 @@
                 drawDiceRow(results, state.deck, 0);
                 let score = scoreYahtzee(results) + state.bonus;
                 state.score += score;
+                state.roundScore = (state.roundScore || 0) + score;
                 // gold per roll plus upgrades
                 let goldGain = Math.floor(score/2);
                 const extraGoldUpgrades = state.upgrades.filter(u=>u==='gold').length;
@@ -655,13 +550,60 @@
             shopEl.classList.remove('open');
             shopEl.setAttribute('aria-hidden','true');
             setTimeout(() => { if (!state.shopOpen) shopEl.style.display = 'none'; }, 300);
-            // start next round
-            state.round++;
+
+            // Check level goal and progress / reset
+            const reached = state.roundScore >= state.levelGoal;
+            if (reached) {
+                // progress
+                state.round++;
+                state.levelGoal = Math.ceil(state.levelGoal * 1.75);
+                state.roundScore = 0;
+                state.roundActive = true;
+                state.rerolls = state.baseRerolls;
+                updateUI();
+                if (state.round > state.winLevel) {
+                    showModal('You Win!', `You reached level ${state.round-1}. Congratulations!`, () => resetGame());
+                }
+            } else {
+                // lost - reset
+                showModal('You Lost', `You failed to reach the goal of ${state.levelGoal}. Game will reset.`, () => resetGame());
+            }
+        }
+
+        // --- Reset / Modal ---
+        function resetGame() {
+            state.score = 0;
+            state.gold = 0;
+            state.baseRerolls = 3;
+            state.rerolls = 3;
+            state.deck = [{type: "normal"},{type: "normal"},{type: "normal"},{type: "normal"},{type: "normal"}];
+            state.unlocked = ["normal"];
+            state.shopOpen = false;
+            state.bonus = 0;
+            state.anim = null;
+            state.diceResults = [];
+            state.round = 1;
             state.roundActive = true;
-            // refill rerolls with any permanent upgrades
-            const extraRerollUpgrades = state.baseRerolls - 3; // base tracks perm growth
-            state.rerolls = state.baseRerolls;
+            state.roundScore = 0;
+            state.levelGoal = INITIAL_LEVEL_GOAL;
+            state.upgrades = [];
             updateUI();
+        }
+
+        function showModal(title, details, onOk) {
+            const modal = document.getElementById('modal');
+            document.getElementById('modalMsg').textContent = title;
+            document.getElementById('modalDetails').textContent = details;
+            modal.classList.add('open');
+            modal.setAttribute('aria-hidden','false');
+            const ok = document.getElementById('modalOk');
+            function handler(){
+                modal.classList.remove('open');
+                modal.setAttribute('aria-hidden','true');
+                ok.removeEventListener('click', handler);
+                if (onOk) onOk();
+            }
+            ok.addEventListener('click', handler);
         }
 
         // --- Event Listeners ---
@@ -679,6 +621,7 @@
                     // enable shop button
                     document.getElementById('shopBtn').disabled = false;
                     document.getElementById('shopBtn').classList.remove('muted');
+                    openShop();
                 }
             }
         };
@@ -686,7 +629,6 @@
             if (!state.roundActive) return;
             state.roundActive = false;
             updateUI();
-            // open shop automatically when round ends
             openShop();
         };
         document.getElementById('shopBtn').onclick = () => openShop();
