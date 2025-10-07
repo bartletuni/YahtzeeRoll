@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Roguelite Yahtzee</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+        html, body {
+            height: 100%;
+            margin: 0;
+            background: linear-gradient(135deg, #ffec70 0%, #ff4d4d 100%);
+            font-family: 'Press Start 2P', cursive;
+            overflow: hidden;
+        }
+        #gameCanvas {
+            display: block;
+            margin: 0 auto;
+            background: #222;
+            border: 8px solid #ff4d4d;
+            image-rendering: pixelated;
+            box-shadow: 0 0 32px #ffec70, 0 0 8px #ff4d4d;
+        }
+        #ui {
+            position: absolute;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 10;
+            color: #fff;
+            text-shadow: 2px 2px 0 #ff4d4d, 0 0 8px #ffec70;
+            font-size: 18px;
+            text-align: center;
+            width: 100vw;
+            pointer-events: none;
+        }
+        #shop {
+            position: absolute;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #fff8e1;
+            border: 4px solid #ff4d4d;
+            border-radius: 8px;
+            padding: 16px;
+            display: none;
+            z-index: 20;
+            font-family: 'Press Start 2P', cursive;
+            color: #ff4d4d;
+            box-shadow: 0 0 16px #ffec70;
+            pointer-events: auto;
+        }
+        .shop-item {
+            margin: 8px 0;
+            cursor: pointer;
+            background: #ffec70;
+            border: 2px solid #ff4d4d;
+            border-radius: 4px;
+            padding: 8px;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .shop-item:hover {
+            background: #ffe066;
+        }
+        .shop-icon {
+            width: 24px;
+            height: 24px;
+            image-rendering: pixelated;
+        }
+        #closeShop {
+            margin-top: 8px;
+            background: #ff4d4d;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-size: 14px;
+            padding: 4px 12px;
+            cursor: pointer;
+            font-family: 'Press Start 2P', cursive;
+        }
+    </style>
+</head>
+<body>
+    <div id="ui">
+        <span id="score">Score: 0</span> | 
+        <span id="gold">Gold: 0</span> | 
+        <span id="rerolls">Rerolls: 3</span> | 
+        <span id="deck"></span>
+        <br>
+        <button id="rollBtn" style="pointer-events:auto;font-family:'Press Start 2P',cursive;font-size:16px;background:#ffec70;color:#ff4d4d;border:2px solid #ff4d4d;border-radius:4px;padding:4px 16px;margin-top:8px;cursor:pointer;">Roll Dice</button>
+        <button id="shopBtn" style="pointer-events:auto;font-family:'Press Start 2P',cursive;font-size:16px;background:#ff4d4d;color:#fff;border:2px solid #ffec70;border-radius:4px;padding:4px 16px;margin-top:8px;cursor:pointer;">Shop</button>
+    </div>
+    <canvas id="gameCanvas" width="640" height="480"></canvas>
+    <div id="shop">
+        <div style="font-size:20px;margin-bottom:8px;">Shop</div>
+        <div id="shopItems"></div>
+        <button id="closeShop">Close</button>
+    </div>
+    <script>
+        // --- Pixel Art Dice Sprites ---
+        const diceSprites = {
+            normal: [
+                // 6x6 pixel art for each face (1-6)
+                [
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,0,2,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                ],
+                [
+                    [0,0,0,0,0,0],
+                    [0,2,0,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,2,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                ],
+                [
+                    [0,0,0,0,0,0],
+                    [0,2,0,0,0,0],
+                    [0,0,2,0,0,0],
+                    [0,0,0,0,2,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                ],
+                [
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                ],
+                [
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                    [0,0,2,0,0,0],
+                    [0,0,0,0,0,0],
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                ],
+                [
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                    [0,2,0,0,2,0],
+                    [0,0,0,0,0,0],
+                ]
+            ],
+            // Fire Die: Red border, burns for extra points
+            fire: [
+                // Same faces, but color code 3 for border
+            ],
+            // Lucky Die: Yellow border, reroll 1s
+            lucky: [
+                // Same faces, but color code 4 for border
+            ],
+            // Shield Die: Orange border, blocks negative effects
+            shield: [
+                // Same faces, but color code 5 for border
+            ]
+        };
+        // Fill in fire/lucky/shield dice with colored borders
+        function makeColoredDice(base, borderColor) {
+            return base.map(face => face.map((row, y) =>
+                row.map((cell, x) => {
+                    if (x === 0 || x === 5 || y === 0 || y === 5) return borderColor;
+                    return cell;
+                })
+            ));
+        }
+        diceSprites.fire = makeColoredDice(diceSprites.normal, 3);
+        diceSprites.lucky = makeColoredDice(diceSprites.normal, 4);
+        diceSprites.shield = makeColoredDice(diceSprites.normal, 5);
+
+        // --- Dice Definitions ---
+        const diceTypes = [
+            {
+                name: "Normal Die",
+                key: "normal",
+                desc: "Standard die. No special effect.",
+                color: "#fff",
+                unlock: 0,
+                ability: (rolls, idx, state) => rolls[idx], // No effect
+            },
+            {
+                name: "Fire Die",
+                key: "fire",
+                desc: "Burn: +2 points if you roll a 6.",
+                color: "#ff4d4d",
+                unlock: 10,
+                ability: (rolls, idx, state) => {
+                    if (rolls[idx] === 6) state.bonus += 2;
+                    return rolls[idx];
+                }
+            },
+            {
+                name: "Lucky Die",
+                key: "lucky",
+                desc: "Reroll: 1s are rerolled once.",
+                color: "#ffec70",
+                unlock: 20,
+                ability: (rolls, idx, state) => {
+                    if (rolls[idx] === 1) {
+                        let reroll = Math.floor(Math.random() * 6) + 1;
+                        return reroll;
+                    }
+                    return rolls[idx];
+                }
+            },
+            {
+                name: "Shield Die",
+                key: "shield",
+                desc: "Block: Prevents negative shop events.",
+                color: "#ffb347",
+                unlock: 30,
+                ability: (rolls, idx, state) => rolls[idx]
+            }
+        ];
+
+        // --- Game State ---
+        let state = {
+            score: 0,
+            gold: 0,
+            rerolls: 3,
+            deck: [{type: "normal"}, {type: "normal"}, {type: "normal"}, {type: "normal"}, {type: "normal"}],
+            unlocked: ["normal"],
+            shopOpen: false,
+            bonus: 0,
+            anim: null,
+            diceResults: [],
+            round: 1,
+            upgrades: [],
+        };
+
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, H = canvas.height;
+
+        // --- Utility Functions ---
+        function drawPixelDie(x, y, size, face, type) {
+            // face: 1-6, type: dice key
+            const sprite = diceSprites[type][face-1];
+            for (let py=0; py<6; ++py) {
+                for (let px=0; px<6; ++px) {
+                    let c = sprite[py][px];
+                    if (c === 0) continue;
+                    ctx.fillStyle = (
+                        c === 2 ? "#222" : // pip
+                        c === 3 ? "#ff4d4d" : // fire border
+                        c === 4 ? "#ffec70" : // lucky border
+                        c === 5 ? "#ffb347" : // shield border
+                        "#fff"
+                    );
+                    ctx.fillRect(x+px*size/6, y+py*size/6, size/6, size/6);
+                }
+            }
+            // Outline
+            ctx.strokeStyle = "#000";
+            ctx.lineWidth = 2;
+            ctx.strokeRect(x, y, size, size);
+        }
+
+        function drawDiceRow(results, deck, animY=0) {
+            let n = deck.length;
+            let size = 64;
+            let gap = 24;
+            let startX = (W - (n*size + (n-1)*gap)) / 2;
+            for (let i=0; i<n; ++i) {
+                let dieType = deck[i].type;
+                let face = results[i] || 1;
+                drawPixelDie(startX + i*(size+gap), H/2 - size/2 + animY, size, face, dieType);
+            }
+        }
+
+        function updateUI() {
+            document.getElementById('score').textContent = `Score: ${state.score}`;
+            document.getElementById('gold').textContent = `Gold: ${state.gold}`;
+            document.getElementById('rerolls').textContent = `Rerolls: ${state.rerolls}`;
+            document.getElementById('deck').textContent = `Deck: ${state.deck.map(d => diceTypes.find(dt=>dt.key===d.type).name).join(", ")}`;
+        }
+
+        // --- Animation ---
+        function animateRoll(results, deck, callback) {
+            let frames = 24;
+            let animFrame = 0;
+            function frame() {
+                ctx.clearRect(0,0,W,H);
+                // Animate dice "jumping"
+                let animY = Math.sin(animFrame/frames * Math.PI) * 40;
+                drawDiceRow(results.map(()=>Math.floor(Math.random()*6)+1), deck, animY);
+                animFrame++;
+                if (animFrame < frames) {
+                    requestAnimationFrame(frame);
+                } else {
+                    ctx.clearRect(0,0,W,H);
+                    drawDiceRow(results, deck, 0);
+                    callback();
+                }
+            }
+            frame();
+        }
+
+        function animateCelebration(results, deck, callback) {
+            let frames = 32;
+            let animFrame = 0;
+            function frame() {
+                ctx.clearRect(0,0,W,H);
+                drawDiceRow(results, deck, 0);
+                // Fireworks
+                for (let i=0; i<10; ++i) {
+                    let angle = Math.random()*2*Math.PI;
+                    let r = Math.random()*80 + 40;
+                    let x = W/2 + Math.cos(angle)*r;
+                    let y = H/2 + Math.sin(angle)*r;
+                    ctx.fillStyle = Math.random() > 0.5 ? "#ffec70" : "#ff4d4d";
+                    ctx.globalAlpha = 1 - animFrame/frames;
+                    ctx.beginPath();
+                    ctx.arc(x, y, 8, 0, 2*Math.PI);
+                    ctx.fill();
+                }
+                ctx.globalAlpha = 1;
+                animFrame++;
+                if (animFrame < frames) {
+                    requestAnimationFrame(frame);
+                } else {
+                    ctx.clearRect(0,0,W,H);
+                    drawDiceRow(results, deck, 0);
+                    callback();
+                }
+            }
+            frame();
+        }
+
+        // --- Game Logic ---
+        function rollDice() {
+            state.bonus = 0;
+            let results = [];
+            for (let i=0; i<state.deck.length; ++i) {
+                let roll = Math.floor(Math.random()*6)+1;
+                results.push(roll);
+            }
+            // Apply dice abilities
+            for (let i=0; i<state.deck.length; ++i) {
+                let dieType = state.deck[i].type;
+                let dieDef = diceTypes.find(dt=>dt.key===dieType);
+                results[i] = dieDef.ability(results, i, state);
+            }
+            state.diceResults = results;
+            animateRoll(results, state.deck, () => {
+                ctx.clearRect(0,0,W,H);
+                drawDiceRow(results, state.deck, 0);
+                let score = scoreYahtzee(results) + state.bonus;
+                state.score += score;
+                state.gold += Math.floor(score/2);
+                updateUI();
+                if (score >= 25) {
+                    animateCelebration(results, state.deck, () => {});
+                }
+            });
+        }
+
+        function scoreYahtzee(results) {
+            // Simple scoring: Yahtzee (all same): 50, Four of a kind: 30, Full house: 25, Large straight: 40, Small straight: 30, Three of a kind: 20, else sum
+            let counts = {};
+            for (let v of results) counts[v] = (counts[v]||0)+1;
+            let vals = Object.values(counts);
+            let unique = Object.keys(counts).map(Number);
+            unique.sort((a,b)=>a-b);
+            if (vals.includes(5)) return 50; // Yahtzee
+            if (vals.includes(4)) return 30;
+            if (vals.includes(3) && vals.includes(2)) return 25; // Full house
+            if (unique.join() === "1,2,3,4,5" || unique.join() === "2,3,4,5,6") return 40; // Large straight
+            if (unique.length >= 4 && (
+                unique.slice(0,4).join() === "1,2,3,4" ||
+                unique.slice(1,5).join() === "2,3,4,5" ||
+                unique.slice(2,6).join() === "3,4,5,6"
+            )) return 30; // Small straight
+            if (vals.includes(3)) return 20;
+            return results.reduce((a,b)=>a+b,0);
+        }
+
+        // --- Shop ---
+        const shopItems = [
+            {
+                name: "Upgrade: +1 Reroll",
+                desc: "Gain an extra reroll per round.",
+                cost: 10,
+                icon: "🔄",
+                effect: () => { state.rerolls += 1; }
+            },
+            {
+                name: "Unlock: Fire Die",
+                desc: "Unlocks Fire Die for your deck.",
+                cost: 15,
+                icon: "🔥",
+                effect: () => { if (!state.unlocked.includes("fire")) state.unlocked.push("fire"); }
+            },
+            {
+                name: "Unlock: Lucky Die",
+                desc: "Unlocks Lucky Die for your deck.",
+                cost: 20,
+                icon: "🍀",
+                effect: () => { if (!state.unlocked.includes("lucky")) state.unlocked.push("lucky"); }
+            },
+            {
+                name: "Unlock: Shield Die",
+                desc: "Unlocks Shield Die for your deck.",
+                cost: 25,
+                icon: "🛡️",
+                effect: () => { if (!state.unlocked.includes("shield")) state.unlocked.push("shield"); }
+            },
+            {
+                name: "Add Die to Deck",
+                desc: "Add a random unlocked die to your deck.",
+                cost: 12,
+                icon: "🎲",
+                effect: () => {
+                    let unlocked = state.unlocked;
+                    let type = unlocked[Math.floor(Math.random()*unlocked.length)];
+                    state.deck.push({type});
+                }
+            },
+            {
+                name: "Upgrade: +1 Gold per Roll",
+                desc: "Earn more gold per roll.",
+                cost: 18,
+                icon: "💰",
+                effect: () => { state.upgrades.push("gold"); }
+            }
+        ];
+
+        function openShop() {
+            state.shopOpen = true;
+            document.getElementById('shop').style.display = 'block';
+            let shopDiv = document.getElementById('shopItems');
+            shopDiv.innerHTML = '';
+            shopItems.forEach((item, idx) => {
+                let div = document.createElement('div');
+                div.className = 'shop-item';
+                div.innerHTML = `<span class="shop-icon">${item.icon}</span> <b>${item.name}</b> - ${item.desc} <span style="margin-left:auto;">${item.cost}G</span>`;
+                div.onclick = () => {
+                    if (state.gold >= item.cost) {
+                        state.gold -= item.cost;
+                        item.effect();
+                        updateUI();
+                        openShop();
+                    }
+                };
+                shopDiv.appendChild(div);
+            });
+        }
+        function closeShop() {
+            state.shopOpen = false;
+            document.getElementById('shop').style.display = 'none';
+        }
+
+        // --- Event Listeners ---
+        document.getElementById('rollBtn').onclick = () => {
+            if (state.shopOpen) return;
+            if (state.rerolls > 0) {
+                state.rerolls--;
+                rollDice();
+                updateUI();
+            }
+        };
+        document.getElementById('shopBtn').onclick = () => {
+            openShop();
+        };
+        document.getElementById('closeShop').onclick = () => {
+            closeShop();
+        };
+
+        // --- Initial Draw ---
+        function mainLoop() {
+            ctx.clearRect(0,0,W,H);
+            drawDiceRow(state.diceResults.length ? state.diceResults : [1,1,1,1,1], state.deck, 0);
+            requestAnimationFrame(mainLoop);
+        }
+        updateUI();
+        mainLoop();
+
+        // --- Unlock Dice with Score ---
+        setInterval(() => {
+            diceTypes.forEach(dt => {
+                if (state.score >= dt.unlock && !state.unlocked.includes(dt.key)) {
+                    state.unlocked.push(dt.key);
+                }
+            });
+        }, 1000);
+
+    </script>
+</body>
+</html>
